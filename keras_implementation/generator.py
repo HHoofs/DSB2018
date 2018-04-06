@@ -7,7 +7,7 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.misc import imresize
-
+from skimage import morphology
 
 def sample_x_y(samples, path, x_shape=(256,256), y_shape=(256,256), mirror_edges=0):
 
@@ -238,11 +238,13 @@ def post_process_predictions(arrays):
     return Y
 
 
-def post_process_concat(ids, prediction, threshold=4):
+def post_process_concat(ids, prediction, threshold=4, bool=True):
     prediction_for_ids = dict.fromkeys(ids)
     for i, label in enumerate(ids):
-        print(8*i, 8*i+8)
-        d4_array = post_process_predictions(prediction[(8*i):(8*i+8)]) > threshold
+        if bool:
+            d4_array = post_process_predictions(prediction[(8*i):(8*i+8)]) > threshold
+        else:
+            d4_array = post_process_predictions(prediction[(8*i):(8*i+8)]) / 8
         prediction_for_ids[label] = d4_array[0,:,:,0]
     return prediction_for_ids
 
@@ -253,7 +255,13 @@ def post_process_original_size(prediction_dict, path):
         with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
             out_shape = np.array(x_img).shape
             pred_as_int = np.array(pred, dtype=int)
-            org_size_prediction_for_ids[label] = imresize(pred_as_int,(out_shape[0],out_shape[1])) > (255/2)
+            pred_as_  = imresize(pred_as_int,(out_shape[0],out_shape[1])) > (255/2)
+            pred_as_ = np.array(pred_as_, dtype=int)
+            pred_as_ = morphology.remove_small_holes(pred_as_)
+            pred_as_ = np.array(pred_as_, dtype=int)
+            pred_as_ = morphology.remove_small_objects(pred_as_, 256)
+            pred_as_ = np.array(pred_as_, dtype=int)
+            org_size_prediction_for_ids[label] = pred_as_
     return org_size_prediction_for_ids
 
 
@@ -261,25 +269,53 @@ def plot_image_true_mask(label, out, path):
     fig = plt.figure()
     with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
         x_plot = x_img.convert(mode='L')
-        # x_arr = np.array(x_img)
-        plt.subplot(131)
-        plt.imshow(x_plot)
+        x_arr = np.array(x_img)
+        plt.subplot(121)
+        plt.imshow(x_arr)
 
-    if os._exists(os.path.join(path, label, 'mask', '{}.png'.format(label))):
-        with Image.open(os.path.join(path, label, 'mask', '{}.png'.format(label))) as y_img:
-            # y_arr = np.array(y_img)
-            y_plot = y_img
-            plt.subplot(132)
-            plt.imshow(y_plot)
-    else:
-        print('no mask')
+    # if os._exists(os.path.join(path, label, 'mask', '{}.png'.format(label))):
+    #     with Image.open(os.path.join(path, label, 'mask', '{}.png'.format(label))) as y_img:
+    #         # y_arr = np.array(y_img)
+    #         y_plot = y_img
+    #         plt.subplot(132)
+    #         plt.imshow(y_plot)
+    # else:
+    #     print('no mask')
 
-    out_arr = out
+    out_arr = out * 255
 
-    plt.subplot(133)
+    plt.subplot(122)
     plt.imshow(out_arr, cmap=cm.gray)
     fig.savefig('output_{}.png'.format(label))
     plt.close()
+
+
+def plot_image_mask_border(label, out_mask, out_border, out_tot, path):
+    fig = plt.figure()
+    with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
+        x_plot = x_img.convert(mode='L')
+        x_arr = np.array(x_img)
+        plt.subplot(141)
+        plt.imshow(x_arr)
+
+    out_mask_p = out_mask * 255
+
+    plt.subplot(142)
+    plt.imshow(out_mask_p, cmap=cm.gray)
+
+    out_border_p = out_border * 255
+
+    plt.subplot(143)
+    plt.imshow(out_border_p, cmap=cm.gray)
+
+    out_tot_p = out_tot
+    plt.subplot(144)
+    plt.imshow(out_tot_p, cmap=cm.gray)
+
+    fig.savefig('output_{}.png'.format(label))
+    plt.close()
+
+    return out_tot
 
 if __name__ == '__main__':
     training = os.listdir('img')[0:8]
