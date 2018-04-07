@@ -3,6 +3,7 @@ import keras
 import os
 from PIL import Image, ImageOps
 from scipy.ndimage import affine_transform
+from scipy.ndimage import morphology as morph
 import random
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -82,7 +83,12 @@ class DataGenerator(keras.utils.Sequence):
             out_shape = self.dim
 
         X = np.empty((self.batch_size, *out_shape, self.n_channels))
-        Y = np.empty((self.batch_size, *self.dim, self.n_channels))
+
+        Y_mask = np.empty((self.batch_size, *self.dim, self.n_channels))
+        Y_border = np.empty((self.batch_size, *self.dim, self.n_channels))
+
+        Y_d = {'y_mask':Y_mask,'y_border':Y_border}
+
 
         if self.rotation:
             rot = np.random.choice([0, 90, 180, 270], self.batch_size)
@@ -131,6 +137,21 @@ class DataGenerator(keras.utils.Sequence):
                 x_arr = np.expand_dims(x_arr, axis=2)
                 X[i,] = x_arr
 
+            with Image.open(os.path.join(self.path, sample, 'mask', '{}.png'.format(sample))) as y_img:
+                y_img = y_img.resize(self.dim)
+                if zoom_o[i]:
+                    y_img = y_img.crop((zoom_o[i][0], zoom_o[i][1], zoom_o[i][2], zoom_o[i][3]))
+                    y_img = y_img.resize(self.dim)
+                y_img = y_img.rotate(rot[i])
+                if flip[0,i]:
+                    y_img = y_img.transpose(Image.FLIP_LEFT_RIGHT)
+                if flip[1,i]:
+                    y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
+                y_arr = np.array(y_img) / 255
+                y_arr = np.expand_dims(y_arr, axis=2)
+                Y_d['y_mask'][i, ] = y_arr
+
+
             with Image.open(os.path.join(self.path, sample, 'border', '{}.png'.format(sample))) as y_img:
                 y_img = y_img.resize(self.dim)
                 if zoom_o[i]:
@@ -143,9 +164,9 @@ class DataGenerator(keras.utils.Sequence):
                     y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
                 y_arr = np.array(y_img) / 255
                 y_arr = np.expand_dims(y_arr, axis=2)
-                Y[i,] = y_arr
+                Y_d['y_border'][i, ] = y_arr
 
-        return X, Y
+        return X, Y_d
 
 
 class PredictDataGenerator(DataGenerator):
@@ -261,7 +282,13 @@ def post_process_original_size(prediction_dict, path):
             pred_as_ = np.array(pred_as_, dtype=int)
             pred_as_ = morphology.remove_small_objects(pred_as_, 256)
             pred_as_ = np.array(pred_as_, dtype=int)
-            org_size_prediction_for_ids[label] = pred_as_
+            pred_as_ = np.array(pred_as_, dtype=int)
+            open_img = morph.binary_opening(pred_as_,iterations=1)
+            close_img = morph.binary_closing(open_img, iterations=1)
+            # print(np.max(close_img))
+            # close_img = pred_as_
+            org_size_prediction_for_ids[label] = close_img
+
     return org_size_prediction_for_ids
 
 
@@ -270,7 +297,7 @@ def plot_image_true_mask(label, out, path):
     with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
         x_plot = x_img.convert(mode='L')
         x_arr = np.array(x_img)
-        plt.subplot(121)
+        plt.subplot(131)
         plt.imshow(x_arr)
 
     # if os._exists(os.path.join(path, label, 'mask', '{}.png'.format(label))):
@@ -284,8 +311,16 @@ def plot_image_true_mask(label, out, path):
 
     out_arr = out * 255
 
-    plt.subplot(122)
+    plt.subplot(132)
     plt.imshow(out_arr, cmap=cm.gray)
+
+
+    pred_as_ = np.array(out_arr, dtype=int)
+    close_img = morph.binary_closing(pred_as_, iterations=2)
+    open_img = morph.binary_opening(close_img,iterations=2)
+    plt.subplot(133)
+    plt.imshow(open_img, cmap=cm.gray)
+
     fig.savefig('output_{}.png'.format(label))
     plt.close()
 
