@@ -70,13 +70,16 @@ if __name__ == '__main__':
     print(labels)
     prediction_ids = labels[:]
 
-    # model_x5 = models.load_model('model_x88.h5')
-    model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_e2e.h5')
+    model_x5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_x88.h5')
+    model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_e2es.h5')
 
     prediction_generator_boundaries = generator.PredictDataGenerator(prediction_ids[:], path_img)
     predictions_boundaries = model_b5.predict_generator(prediction_generator_boundaries)
 
-    henk_ = generator.postprocess_list(prediction_ids[:], predictions_boundaries)
+    prediction_generator_only_masks = generator.PredictDataGenerator(prediction_ids[:], path_img)
+    predictions_only_masks = model_x5.predict_generator(prediction_generator_only_masks)
+
+    henk_ = generator.post_process_concat(prediction_ids[:], predictions_only_masks, threshold=4, bool=True)
 
     nico_ = generator.post_process_concat(prediction_ids[:], predictions_boundaries[0], threshold=4, bool=True)
 
@@ -104,18 +107,18 @@ if __name__ == '__main__':
     #     print(np.max(out_arra))
     #     generator.plot_image_true_mask(ids, out_arra, path_img)
 
-    new_test_ids = []
-    rles = []
-
-    for id, arrayx_ in out_true.items():
-        rle = list(prob_to_rles(arrayx_))
-        rles.extend(rle)
-        new_test_ids.extend([id] * len(rle))
-
-    sub = pd.DataFrame()
-    sub['ImageId'] = new_test_ids
-    sub['EncodedPixels'] = pd.Series(rles).apply(lambda x: ' '.join(str(y) for y in x))
-    sub.to_csv('sub.csv', index=False)
+    # new_test_ids = []
+    # rles = []
+    #
+    # for id, arrayx_ in out_true.items():
+    #     rle = list(prob_to_rles(arrayx_))
+    #     rles.extend(rle)
+    #     new_test_ids.extend([id] * len(rle))
+    #
+    # sub = pd.DataFrame()
+    # sub['ImageId'] = new_test_ids
+    # sub['EncodedPixels'] = pd.Series(rles).apply(lambda x: ' '.join(str(y) for y in x))
+    # sub.to_csv('sub.csv', index=False)
 
 
 
