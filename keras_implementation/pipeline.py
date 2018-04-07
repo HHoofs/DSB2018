@@ -172,31 +172,35 @@ def create_model(filter_size = 8, drop_rate=.4):
     uconc1 = concatenate([conv1, uconv1], axis=3)
     uconv1 = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconc1)
     uconv1 = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
-    uconv1 = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
+    uconv1a = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
 
-    pred = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid')(uconv1)
+    pred_mask = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid', name='mask_out')(uconv1a)
 
-    model = Model(inputs=img_input, outputs=pred)
+    uconv1b = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
+
+    pred_bord = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid', name='bord_out')(uconv1b)
+
+    model = Model(inputs=img_input, outputs=[pred_mask, pred_bord])
     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['acc', mean_iou])
     return model
 
 
 
 if __name__ == '__main__':
-    create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/tessst', 256, 256)
-    # path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img_no_masks'
+    # create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/tessst', 256, 256)
+    path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img_no_masks'
     # path_img = 'img'
-    # model_x2 = create_model()
-    # model_x2.summary()
-    # labels = os.listdir(path_img)
-    # training = labels[:608]
-    # validation = labels[608:]
-    # print(len(training))
-    # print(len(validation))
-    # training_generator = generator.DataGenerator(training, path_img,
-    #                                              rotation=True, flipping=True, zoom=1.5, batch_size = 16, dim=(256,256))
-    # validation_generator = generator.DataGenerator(validation, path_img,
-    #                                              rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
-    # model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=64)
-    # # Save model
-    # model_x2.save('model_b5.h5')
+    model_x2 = create_model()
+    model_x2.summary()
+    labels = os.listdir(path_img)
+    training = labels[:608]
+    validation = labels[608:]
+    print(len(training))
+    print(len(validation))
+    training_generator = generator.DataGenerator(training, path_img,
+                                                 rotation=True, flipping=True, zoom=1.5, batch_size = 16, dim=(256,256))
+    validation_generator = generator.DataGenerator(validation, path_img,
+                                                 rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
+    model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=64)
+    # Save model
+    model_x2.save('models_e2e.h5')

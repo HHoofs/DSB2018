@@ -87,7 +87,7 @@ class DataGenerator(keras.utils.Sequence):
         Y_mask = np.empty((self.batch_size, *self.dim, self.n_channels))
         Y_border = np.empty((self.batch_size, *self.dim, self.n_channels))
 
-        Y_d = {'y_mask':Y_mask,'y_border':Y_border}
+        Y_d = {'mask_out':Y_mask,'bord_out':Y_border}
 
 
         if self.rotation:
@@ -149,7 +149,7 @@ class DataGenerator(keras.utils.Sequence):
                     y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
                 y_arr = np.array(y_img) / 255
                 y_arr = np.expand_dims(y_arr, axis=2)
-                Y_d['y_mask'][i, ] = y_arr
+                Y_d['mask_out'][i, ] = y_arr
 
 
             with Image.open(os.path.join(self.path, sample, 'border', '{}.png'.format(sample))) as y_img:
@@ -164,7 +164,7 @@ class DataGenerator(keras.utils.Sequence):
                     y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
                 y_arr = np.array(y_img) / 255
                 y_arr = np.expand_dims(y_arr, axis=2)
-                Y_d['y_border'][i, ] = y_arr
+                Y_d['bord_out'][i, ] = y_arr
 
         return X, Y_d
 
@@ -259,6 +259,17 @@ def post_process_predictions(arrays):
     return Y
 
 
+def postprocess_list(ids, list_arrays):
+    out_dict = dict.fromkeys(ids)
+    for i, label in enumerate(ids):
+        out_mask = post_process_predictions(list_arrays[0][(8 * i):(8 * i + 8)]) / 8
+        out_bord = post_process_predictions(list_arrays[1][(8 * i):(8 * i + 8)]) / 8
+        out_ = out_mask - out_bord > .01
+        out_dict[label] = out_[0,:,:,0]
+    return out_dict
+
+
+
 def post_process_concat(ids, prediction, threshold=4, bool=True):
     prediction_for_ids = dict.fromkeys(ids)
     for i, label in enumerate(ids):
@@ -284,10 +295,10 @@ def post_process_original_size(prediction_dict, path):
             pred_as_ = np.array(pred_as_, dtype=int)
             pred_as_ = np.array(pred_as_, dtype=int)
             open_img = morph.binary_opening(pred_as_,iterations=1)
-            close_img = morph.binary_closing(open_img, iterations=1)
+            # close_img = morph.binary_closing(open_img, iterations=1)
             # print(np.max(close_img))
             # close_img = pred_as_
-            org_size_prediction_for_ids[label] = close_img
+            org_size_prediction_for_ids[label] = open_img
 
     return org_size_prediction_for_ids
 
@@ -325,32 +336,31 @@ def plot_image_true_mask(label, out, path):
     plt.close()
 
 
-def plot_image_mask_border(label, out_mask, out_border, out_tot, path):
+def plot_image_mask_border(label, out_mask, out_border, path):
     fig = plt.figure()
     with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
         x_plot = x_img.convert(mode='L')
         x_arr = np.array(x_img)
-        plt.subplot(141)
+        plt.subplot(131)
         plt.imshow(x_arr)
 
     out_mask_p = out_mask * 255
 
-    plt.subplot(142)
+    plt.subplot(132)
     plt.imshow(out_mask_p, cmap=cm.gray)
 
     out_border_p = out_border * 255
 
-    plt.subplot(143)
+    plt.subplot(133)
     plt.imshow(out_border_p, cmap=cm.gray)
 
-    out_tot_p = out_tot
-    plt.subplot(144)
-    plt.imshow(out_tot_p, cmap=cm.gray)
+    # out_tot_p = out_tot
+    # plt.subplot(144)
+    # plt.imshow(out_tot_p, cmap=cm.gray)
 
-    fig.savefig('output_{}.png'.format(label))
+    fig.savefig('C:/Users/huubh/Documents/DSB2018/output_{}.png'.format(label))
     plt.close()
 
-    return out_tot
 
 if __name__ == '__main__':
     training = os.listdir('img')[0:8]

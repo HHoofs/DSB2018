@@ -65,24 +65,23 @@ def prob_to_rles(x, cut_off = 0.5):
         yield rle_encoding(lab_img==i)
 
 if __name__ == '__main__':
-    path_img = '../stage1_test'
+    path_img = '../img'
     labels = os.listdir(path_img)[:]
     print(labels)
     prediction_ids = labels[:]
 
-    model_x5 = models.load_model('model_x88.h5')
-    # model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_b5.h5')
+    # model_x5 = models.load_model('model_x88.h5')
+    model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_e2e.h5')
 
-    # prediction_generator_boundaries = generator.PredictDataGenerator(prediction_ids[:], path_img)
-    # predictions_boundaries = model_b5.predict_generator(prediction_generator_boundaries)
-    #
-    # out_boundaries_square = generator.post_process_concat(prediction_ids[:], predictions_boundaries, threshold=4, bool=False)
+    prediction_generator_boundaries = generator.PredictDataGenerator(prediction_ids[:], path_img)
+    predictions_boundaries = model_b5.predict_generator(prediction_generator_boundaries)
 
-    prediction_generator_masks = generator.PredictDataGenerator(prediction_ids[:], path_img)
-    predictions_mask = model_x5.predict_generator(prediction_generator_masks)
+    henk_ = generator.postprocess_list(prediction_ids[:], predictions_boundaries)
 
-    out_masks_square = generator.post_process_concat(prediction_ids[:], predictions_mask, threshold=4, bool=True)
+    nico_ = generator.post_process_concat(prediction_ids[:], predictions_boundaries[0], threshold=4, bool=True)
 
+    for ids, out_arra in henk_.items():
+        generator.plot_image_mask_border(ids, nico_[ids], out_arra, path_img)
 
     # out_true = generator.post_process_original_size(out_square, path_img)
 
@@ -91,7 +90,7 @@ if __name__ == '__main__':
     # for id in summed_dict.keys():
     #     summed_dict[id] = out_masks_square[id] - out_boundaries_square[id] > .5
 
-    out_true = generator.post_process_original_size(out_masks_square, path_img)
+    out_true = generator.post_process_original_size(nico_, path_img)
 
     # for ids, out_arra in out_masks_square.items():
     #     summed_dict[ids] = generator.plot_image_mask_border(ids, out_masks_square[ids], out_arra, out_true[ids], path_img)
