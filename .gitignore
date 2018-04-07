@@ -6,3 +6,14 @@
 */.idea
 *.csv
 *pyache*
+*.png
+
+tessst/00ae65c1c6631ae6f2be1a449902976e6eb8483bf6b0740d00530220832c6d3e/\.DS_Store
+
+tessst/0a7d30b252359a10fd298b638b90cb9ada3acced4e0c0e5a3692013f432ee4e9/\.DS_Store
+
+tessst/0acd2c223d300ea55d0546797713851e818e5c697d073b7f4091b96ce0f3d2fe/\.DS_Store
+
+\.DS_Store
+
+keras_implementation/__pycache__/

@@ -18,6 +18,7 @@ import shutil
 
 from skimage.segmentation import find_boundaries
 from skimage.morphology import dilation
+from scipy.ndimage.measurements import center_of_mass
 
 
 def find_all_samples(path):
@@ -66,6 +67,54 @@ def create_border_mask(path, width, height):
         os.mkdir(os.path.join(sample_path, 'border'))
         mask_image = Image.fromarray(bound_array.astype('uint8'), 'L')
         mask_image.save(os.path.join(sample_path, 'border', '{}.png'.format(sample)))
+
+
+def foo(l, dtype=int):
+    return map(dtype, l)
+
+def create_border_hyper_mask(path, width, height):
+    samples = find_all_samples(path)[1:]
+    for sample in samples[:4]:
+        sample_path = os.path.join(path, sample)
+        sample_path_masks = os.path.join(sample_path, 'masks')
+        masks = os.listdir(sample_path_masks)
+        complete_mask = np.zeros((width, height), dtype=int)
+        centers = []
+        for i, mask in enumerate(masks):
+            with Image.open(os.path.join(sample_path_masks, mask)) as _mask:
+                _array = np.array(_mask.resize((width, height)))
+                centers.append(center_of_mass(_array))
+                _array = np.array(_array > 0, dtype=int) * (i + 1)
+                complete_mask = np.add(complete_mask, _array)
+        full_bounds = np.array(complete_mask, dtype=int)
+        bound_array = find_boundaries(label_img = full_bounds, connectivity = 1, mode='outer', background=0)
+        bound_array = np.array(bound_array, dtype=int)
+        bound_array = bound_array * - 1000
+        full_bounds = full_bounds > 0
+        full_bounds = np.array(full_bounds, dtype=int)
+        print(centers)
+        for coord in centers:
+            print(coord)
+            x, y = int(round(coord[0])), int(round(coord[1]))
+            xx = [x-1,x,x+1]
+            yy = [y-1,y,y+1]
+            print(xx)
+            print(yy)
+            full_bounds[xx,yy] = 2
+        full_bounds = np.add(full_bounds, bound_array)
+        full_bounds[full_bounds<0] = -1
+        full_bounds = full_bounds + 1
+        full_bounds = full_bounds / 3
+        complete_ = np.array(full_bounds, dtype=int)
+
+        bound_array = complete_ * 255
+        print(np.max(bound_array))
+
+        # save image
+        # shutil.rmtree(os.path.join(sample_path, 'trish'))
+        os.mkdir(os.path.join(sample_path, 'trish'))
+        mask_image = Image.fromarray(bound_array.astype('uint8'), 'L')
+        mask_image.save(os.path.join(sample_path, 'trish', '{}.png'.format(sample)))
 
 
 def mean_iou(y_true, y_pred):
@@ -134,19 +183,20 @@ def create_model(filter_size = 8, drop_rate=.4):
 
 
 if __name__ == '__main__':
+    create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/tessst', 256, 256)
     # path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img_no_masks'
-    path_img = 'img'
-    model_x2 = create_model()
-    model_x2.summary()
-    labels = os.listdir(path_img)
-    training = labels[:608]
-    validation = labels[608:]
-    print(len(training))
-    print(len(validation))
-    training_generator = generator.DataGenerator(training, path_img,
-                                                 rotation=True, flipping=True, zoom=1.5, batch_size = 16, dim=(256,256))
-    validation_generator = generator.DataGenerator(validation, path_img,
-                                                 rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
-    model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=64)
-    # Save model
-    model_x2.save('model_b5.h5')
+    # path_img = 'img'
+    # model_x2 = create_model()
+    # model_x2.summary()
+    # labels = os.listdir(path_img)
+    # training = labels[:608]
+    # validation = labels[608:]
+    # print(len(training))
+    # print(len(validation))
+    # training_generator = generator.DataGenerator(training, path_img,
+    #                                              rotation=True, flipping=True, zoom=1.5, batch_size = 16, dim=(256,256))
+    # validation_generator = generator.DataGenerator(validation, path_img,
+    #                                              rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
+    # model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=64)
+    # # Save model
+    # model_x2.save('model_b5.h5')
