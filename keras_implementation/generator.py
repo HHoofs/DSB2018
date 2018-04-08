@@ -152,7 +152,7 @@ class DataGenerator(keras.utils.Sequence):
                 Y_d['mask_out'][i, ] = y_arr
 
 
-            with Image.open(os.path.join(self.path, sample, 'border', '{}.png'.format(sample))) as y_img:
+            with Image.open(os.path.join(self.path, sample, 'border_small', '{}.png'.format(sample))) as y_img:
                 y_img = y_img.resize(self.dim)
                 if zoom_o[i]:
                     y_img = y_img.crop((zoom_o[i][0], zoom_o[i][1], zoom_o[i][2], zoom_o[i][3]))
@@ -293,7 +293,8 @@ def post_process_original_size(prediction_dict, path):
             pred_as_ = np.array(pred_as_, dtype=int)
             pred_as_ = morphology.remove_small_objects(pred_as_, 256)
             pred_as_ = np.array(pred_as_, dtype=int)
-            pred_as_ = np.array(pred_as_, dtype=int)
+            # pred_as_ = morphology.opening(pred_as_, morphology.square(3))
+            # pred_as_ = np.array(pred_as_, dtype=int)
             open_img = morph.binary_opening(pred_as_,iterations=1)
             # close_img = morph.binary_closing(open_img, iterations=1)
             # print(np.max(close_img))
@@ -340,6 +341,7 @@ def plot_image_mask_border(label, out_mask, out_border, path):
     fig = plt.figure()
     with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
         x_plot = x_img.convert(mode='L')
+        # x_img = ImageOps.autocontrast(x_img)
         x_arr = np.array(x_img)
         plt.subplot(131)
         plt.imshow(x_arr)

@@ -1,5 +1,6 @@
 from keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Conv2DTranspose, concatenate
 from keras.models import Model
+from keras.optimizers import Adam
 try:
     from keras_implementation import generator
 except:
@@ -7,6 +8,8 @@ except:
 
 import keras.backend as K
 import tensorflow as tf
+from keras.callbacks import ModelCheckpoint, LearningRateScheduler
+
 
 from skimage.segmentation import mark_boundaries
 
@@ -58,15 +61,17 @@ def create_border_mask(path, width, height):
         full_bounds = np.array(complete_mask, dtype=int)
         bound_array = find_boundaries(label_img = full_bounds, connectivity = 1, mode='outer', background=0)
         bound_array = np.array(bound_array, dtype=int)
-        bound_array = dilation(bound_array)
         bound_array = bound_array * 255
         print(np.max(bound_array))
 
         # save image
-        shutil.rmtree(os.path.join(sample_path, 'border'))
-        os.mkdir(os.path.join(sample_path, 'border'))
+        try:
+            shutil.rmtree(os.path.join(sample_path, 'border_small'))
+        except:
+            pass
+        os.mkdir(os.path.join(sample_path, 'border_small'))
         mask_image = Image.fromarray(bound_array.astype('uint8'), 'L')
-        mask_image.save(os.path.join(sample_path, 'border', '{}.png'.format(sample)))
+        mask_image.save(os.path.join(sample_path, 'border_small', '{}.png'.format(sample)))
 
 
 def foo(l, dtype=int):
@@ -171,14 +176,16 @@ def create_model(filter_size = 8, drop_rate=.4):
     uconv1 = Conv2DTranspose(filters=filter_size, kernel_size=2, strides=2, activation='relu', padding='same')(uconv2)
     uconc1 = concatenate([conv1, uconv1], axis=3)
     uconv1 = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconc1)
-    uconv1 = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
-    uconv1a = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
+    uconv1a = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
+    uconv1a = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1a)
 
     pred_mask = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid', name='mask_out')(uconv1a)
 
-    uconv1b = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
+    uconv1b = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
+    uconv1b = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1b)
 
     pred_bord = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid', name='bord_out')(uconv1b)
+
 
     model = Model(inputs=img_input, outputs=[pred_mask, pred_bord])
     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['acc', mean_iou])
@@ -188,19 +195,19 @@ def create_model(filter_size = 8, drop_rate=.4):
 
 if __name__ == '__main__':
     # create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/tessst', 256, 256)
-    path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img_no_masks'
-    # path_img = 'img'
+    # path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img_no_masks'
+    path_img = 'img'
     model_x2 = create_model()
     model_x2.summary()
     labels = os.listdir(path_img)
-    training = labels[:608]
-    validation = labels[608:]
+    training = labels[:]
+    # validation = labels[608:]
     print(len(training))
-    print(len(validation))
+    # print(len(validation))
     training_generator = generator.DataGenerator(training, path_img,
-                                                 rotation=True, flipping=True, zoom=1.5, batch_size = 16, dim=(256,256))
-    validation_generator = generator.DataGenerator(validation, path_img,
-                                                 rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
-    model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=64)
+                                                 rotation=True, flipping=True, zoom=1.5, batch_size=16, dim=(256,256))
+    # validation_generator = generator.DataGenerator(validation, path_img,
+    #                                              rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
+    model_x2.fit_generator(generator=training_generator, epochs=128)
     # Save model
-    model_x2.save('models_e2e.h5')
+    model_x2.save('models_e2e_regular.h5')
