@@ -135,6 +135,7 @@ class DataGenerator(keras.utils.Sequence):
                     x_arr = affine_transform(x_arr, [1,1], offset=[self.mirror_edges/2, self.mirror_edges/2],
                                              output_shape=out_shape, mode='mirror')
                 x_arr = np.expand_dims(x_arr, axis=2)
+
                 X[i,] = x_arr
 
             with Image.open(os.path.join(self.path, sample, 'mask', '{}.png'.format(sample))) as y_img:
@@ -149,10 +150,28 @@ class DataGenerator(keras.utils.Sequence):
                     y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
                 y_arr = np.array(y_img) / 255
                 y_arr = np.expand_dims(y_arr, axis=2)
-                Y_d['mask_out'][i, ] = y_arr
+                y_arr_store = y_arr
 
 
-            with Image.open(os.path.join(self.path, sample, 'border_small', '{}.png'.format(sample))) as y_img:
+            with Image.open(os.path.join(self.path, sample, 'smashing_border', '{}.png'.format(sample))) as y_img:
+                y_img = y_img.resize(self.dim)
+                if zoom_o[i]:
+                    y_img = y_img.crop((zoom_o[i][0], zoom_o[i][1], zoom_o[i][2], zoom_o[i][3]))
+                    y_img = y_img.resize(self.dim)
+                y_img = y_img.rotate(rot[i])
+                if flip[0,i]:
+                    y_img = y_img.transpose(Image.FLIP_LEFT_RIGHT)
+                if flip[1,i]:
+                    y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
+                y_arr = np.array(y_img) / 255
+                y_arr = y_arr ** 2
+                y_arr = np.expand_dims(y_arr, axis=2)
+                y_arr_sub = y_arr_store - y_arr
+                y_arr_sub = (y_arr_sub + 4) / 5
+                Y_d['y_mask'][i, ] = y_arr_sub
+
+
+            with Image.open(os.path.join(self.path, sample, 'border', '{}.png'.format(sample))) as y_img:
                 y_img = y_img.resize(self.dim)
                 if zoom_o[i]:
                     y_img = y_img.crop((zoom_o[i][0], zoom_o[i][1], zoom_o[i][2], zoom_o[i][3]))
