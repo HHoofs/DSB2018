@@ -82,12 +82,12 @@ class DataGenerator(keras.utils.Sequence):
         else:
             out_shape = self.dim
 
-        X = np.empty((self.batch_size, *out_shape, self.n_channels))
+        X_image = np.empty((self.batch_size, *out_shape, self.n_channels))
+        X_weigh = np.empty((self.batch_size, *out_shape, self.n_channels))
 
-        Y_mask = np.empty((self.batch_size, *self.dim, self.n_channels))
-        Y_border = np.empty((self.batch_size, *self.dim, self.n_channels))
+        X_d = {'input_image': X_image, 'input_weight': X_weigh}
 
-        Y_d = {'mask_out':Y_mask,'bord_out':Y_border}
+        Y = np.empty((self.batch_size, *self.dim, self.n_channels))
 
 
         if self.rotation:
@@ -136,7 +136,26 @@ class DataGenerator(keras.utils.Sequence):
                                              output_shape=out_shape, mode='mirror')
                 x_arr = np.expand_dims(x_arr, axis=2)
 
-                X[i,] = x_arr
+                X_d['input_image'][i,] = x_arr
+
+            with Image.open(os.path.join(self.path, sample, 'smashing_border', '{}.png'.format(sample))) as weight_img:
+                weight_img = weight_img.resize(self.dim)
+                if zoom_o[i]:
+                    weight_img = weight_img.crop((zoom_o[i][0], zoom_o[i][1], zoom_o[i][2], zoom_o[i][3]))
+                    weight_img = weight_img.resize(self.dim)
+                weight_img = weight_img.rotate(rot[i])
+                if flip[0,i]:
+                    weight_img = weight_img.transpose(Image.FLIP_LEFT_RIGHT)
+                if flip[1,i]:
+                    weight_img = weight_img.transpose(Image.FLIP_TOP_BOTTOM)
+                weight_img = np.array(weight_img) / 255
+                weight_img = weight_img * 9 + 1
+                # print(np.max(weight_img), np.min(weight_img))
+                weight_img = np.expand_dims(weight_img, axis=2)
+                # print(weight_img.shape)
+
+                X_d['input_weight'][i, ] = weight_img
+
 
             with Image.open(os.path.join(self.path, sample, 'mask', '{}.png'.format(sample))) as y_img:
                 y_img = y_img.resize(self.dim)
@@ -164,28 +183,14 @@ class DataGenerator(keras.utils.Sequence):
                 if flip[1,i]:
                     y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
                 y_arr = np.array(y_img) / 255
-                y_arr = y_arr ** 2
                 y_arr = np.expand_dims(y_arr, axis=2)
+                y_arr[y_arr>0] = 1
                 y_arr_sub = y_arr_store - y_arr
-                y_arr_sub = (y_arr_sub + 4) / 5
-                Y_d['y_mask'][i, ] = y_arr_sub
+                y_arr_sub[y_arr_sub<0] = 0
+                Y[i, ] = y_arr_sub
 
 
-            with Image.open(os.path.join(self.path, sample, 'border', '{}.png'.format(sample))) as y_img:
-                y_img = y_img.resize(self.dim)
-                if zoom_o[i]:
-                    y_img = y_img.crop((zoom_o[i][0], zoom_o[i][1], zoom_o[i][2], zoom_o[i][3]))
-                    y_img = y_img.resize(self.dim)
-                y_img = y_img.rotate(rot[i])
-                if flip[0,i]:
-                    y_img = y_img.transpose(Image.FLIP_LEFT_RIGHT)
-                if flip[1,i]:
-                    y_img = y_img.transpose(Image.FLIP_TOP_BOTTOM)
-                y_arr = np.array(y_img) / 255
-                y_arr = np.expand_dims(y_arr, axis=2)
-                Y_d['bord_out'][i, ] = y_arr
-
-        return X, Y_d
+        return X_d, Y
 
 
 class PredictDataGenerator(DataGenerator):
@@ -262,17 +267,21 @@ class PredictDataGenerator(DataGenerator):
         return X
 
 
-def post_process_predictions(arrays):
+def post_process_predictions(arrays, transform=False):
     Y = np.zeros((1, *arrays[0].shape))
     for i in range(4):
         _arr = arrays[i]
         _arr = np.rot90(_arr, k=-1*i)
+        if transform:
+            _arr = _arr * 5 - 4
         Y = np.add(Y, _arr)
 
     for i in range(4):
         _arr = arrays[i+4]
         _arr = np.fliplr(_arr)
         _arr = np.rot90(_arr, k=i)
+        if transform:
+            _arr = _arr * 5 - 4
         Y = np.add(Y, _arr)
 
     return Y
@@ -293,11 +302,14 @@ def post_process_concat(ids, prediction, threshold=4, bool=True):
     prediction_for_ids = dict.fromkeys(ids)
     for i, label in enumerate(ids):
         if bool:
-            d4_array = post_process_predictions(prediction[(8*i):(8*i+8)]) > threshold
+            d4_array = post_process_predictions(prediction[(8*i):(8*i+8)]) * 2 > threshold
         else:
             d4_array = post_process_predictions(prediction[(8*i):(8*i+8)]) / 8
         prediction_for_ids[label] = d4_array[0,:,:,0]
     return prediction_for_ids
+
+
+
 
 
 def post_process_original_size(prediction_dict, path):
@@ -309,16 +321,16 @@ def post_process_original_size(prediction_dict, path):
             pred_as_  = imresize(pred_as_int,(out_shape[0],out_shape[1])) > (255/2)
             pred_as_ = np.array(pred_as_, dtype=int)
             pred_as_ = morphology.remove_small_holes(pred_as_)
-            pred_as_ = np.array(pred_as_, dtype=int)
-            pred_as_ = morphology.remove_small_objects(pred_as_, 256)
-            pred_as_ = np.array(pred_as_, dtype=int)
+            # pred_as_ = np.array(pred_as_, dtype=int)
+            # pred_as_ = morphology.remove_small_objects(pred_as_, 256)
+            # pred_as_ = np.array(pred_as_, dtype=int)
             # pred_as_ = morphology.opening(pred_as_, morphology.square(3))
             # pred_as_ = np.array(pred_as_, dtype=int)
-            open_img = morph.binary_opening(pred_as_,iterations=1)
-            # close_img = morph.binary_closing(open_img, iterations=1)
+            # open_img = morph.binary_opening(pred_as_,iterations=1)
+            # close_img = morph.binary_closing(pred_as_, iterations=1)
             # print(np.max(close_img))
-            # close_img = pred_as_
-            org_size_prediction_for_ids[label] = open_img
+            # pred_as_ = close_img
+            org_size_prediction_for_ids[label] = pred_as_
 
     return org_size_prediction_for_ids
 
@@ -331,26 +343,20 @@ def plot_image_true_mask(label, out, path):
         plt.subplot(131)
         plt.imshow(x_arr)
 
-    # if os._exists(os.path.join(path, label, 'mask', '{}.png'.format(label))):
-    #     with Image.open(os.path.join(path, label, 'mask', '{}.png'.format(label))) as y_img:
-    #         # y_arr = np.array(y_img)
-    #         y_plot = y_img
-    #         plt.subplot(132)
-    #         plt.imshow(y_plot)
-    # else:
-    #     print('no mask')
+    if os._exists(os.path.join(path, label, 'mask', '{}.png'.format(label))):
+        with Image.open(os.path.join(path, label, 'mask', '{}.png'.format(label))) as y_img:
+            # y_arr = np.array(y_img)
+            y_plot = y_img
+            plt.subplot(132)
+            plt.imshow(y_plot)
+    else:
+        print('no mask')
 
     out_arr = out * 255
 
-    plt.subplot(132)
+    plt.subplot(133)
     plt.imshow(out_arr, cmap=cm.gray)
 
-
-    pred_as_ = np.array(out_arr, dtype=int)
-    close_img = morph.binary_closing(pred_as_, iterations=2)
-    open_img = morph.binary_opening(close_img,iterations=2)
-    plt.subplot(133)
-    plt.imshow(open_img, cmap=cm.gray)
 
     fig.savefig('output_{}.png'.format(label))
     plt.close()
@@ -381,6 +387,40 @@ def plot_image_mask_border(label, out_mask, out_border, path):
 
     fig.savefig('C:/Users/huubh/Documents/DSB2018/output_{}.png'.format(label))
     plt.close()
+
+
+def plot_image_mask_hyper_out(label, out_mask, path):
+    fig = plt.figure()
+    with Image.open(os.path.join(path, label, 'images', '{}.png'.format(label))) as x_img:
+        x_plot = x_img.convert(mode='L')
+        # x_img = ImageOps.autocontrast(x_img)
+        x_arr = np.array(x_img)
+        plt.subplot(221)
+        plt.imshow(x_arr)
+
+    with Image.open(os.path.join(path, label, 'mask', '{}.png'.format(label))) as x_img:
+        x_plot = x_img.convert(mode='L')
+        # x_img = ImageOps.autocontrast(x_img)
+        x_arr = np.array(x_img)
+        plt.subplot(222)
+        plt.imshow(x_arr)
+
+    with Image.open(os.path.join(path, label, 'smashing_border', '{}.png'.format(label))) as x_img:
+        x_plot = x_img.convert(mode='L')
+        # x_img = ImageOps.autocontrast(x_img)
+        x_arr = np.array(x_img)
+        plt.subplot(223)
+        plt.imshow(x_arr)
+
+    out_mask_p = out_mask * 255
+
+    plt.subplot(224)
+    plt.imshow(out_mask_p, cmap=cm.gray)
+
+
+    fig.savefig('output_{}.png'.format(label))
+    plt.close()
+
 
 
 if __name__ == '__main__':

@@ -4,7 +4,10 @@ try:
 except:
     import generator, pipeline
 import keras.metrics
-keras.metrics.mean_iou = pipeline.mean_iou
+keras.metrics.mean_iou_border = pipeline.mean_iou_border
+keras.losses.cust = keras.losses.binary_crossentropy
+# keras.metrics.mean_iou_mask = pipeline.mean_iou_mask
+
 from keras import models
 import os
 import numpy as np
@@ -65,26 +68,28 @@ def prob_to_rles(x, cut_off = 0.5):
         yield rle_encoding(lab_img==i)
 
 if __name__ == '__main__':
-    path_img = '../img'
-    labels = os.listdir(path_img)[:]
-    print(labels)
+    path_img = '../stage1_train'
+    labels = os.listdir(path_img)[1:11]
+    print(len(labels))
     prediction_ids = labels[:]
 
-    model_x5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_x88.h5')
-    model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_e2es.h5')
+    # model_x5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_x88.h5')
+    # model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_t5t.h5')
+    model_b5 = models.load_model('model_doge.h5')
+
 
     prediction_generator_boundaries = generator.PredictDataGenerator(prediction_ids[:], path_img)
     predictions_boundaries = model_b5.predict_generator(prediction_generator_boundaries)
 
-    prediction_generator_only_masks = generator.PredictDataGenerator(prediction_ids[:], path_img)
-    predictions_only_masks = model_x5.predict_generator(prediction_generator_only_masks)
+    # prediction_generator_only_masks = generator.PredictDataGenerator(prediction_ids[:], path_img)
+    # predictions_only_masks = model_x5.predict_generator(prediction_generator_only_masks)
+    #
+    # henk_ = generator.post_process_concat(prediction_ids[:], predictions_only_masks, threshold=4, bool=True)
 
-    henk_ = generator.post_process_concat(prediction_ids[:], predictions_only_masks, threshold=4, bool=True)
+    nico_ = generator.post_process_concat(prediction_ids[:], predictions_boundaries, threshold=3, bool=True)
 
-    nico_ = generator.post_process_concat(prediction_ids[:], predictions_boundaries[0], threshold=4, bool=True)
-
-    for ids, out_arra in henk_.items():
-        generator.plot_image_mask_border(ids, nico_[ids], out_arra, path_img)
+    for ids, out_arra in nico_.items():
+        generator.plot_image_mask_hyper_out(ids, out_arra, path_img)
 
     # out_true = generator.post_process_original_size(out_square, path_img)
 
@@ -93,7 +98,7 @@ if __name__ == '__main__':
     # for id in summed_dict.keys():
     #     summed_dict[id] = out_masks_square[id] - out_boundaries_square[id] > .5
 
-    out_true = generator.post_process_original_size(nico_, path_img)
+    # out_true = generator.post_process_original_size(nico_, path_img)
 
     # for ids, out_arra in out_masks_square.items():
     #     summed_dict[ids] = generator.plot_image_mask_border(ids, out_masks_square[ids], out_arra, out_true[ids], path_img)
@@ -106,7 +111,7 @@ if __name__ == '__main__':
     # for ids, out_arra in out_true.items():
     #     print(np.max(out_arra))
     #     generator.plot_image_true_mask(ids, out_arra, path_img)
-
+    #
     # new_test_ids = []
     # rles = []
     #

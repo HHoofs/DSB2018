@@ -1,10 +1,12 @@
-from keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Conv2DTranspose, concatenate
+from keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Conv2DTranspose, concatenate, Multiply
 from keras.models import Model
 from keras.optimizers import Adam
 try:
     from keras_implementation import generator
 except:
     import generator
+
+from keras.losses import binary_crossentropy
 
 import keras.backend as K
 import tensorflow as tf
@@ -77,6 +79,7 @@ def create_border_mask(path, width, height):
 def foo(l, dtype=int):
     return map(dtype, l)
 
+
 def create_border_hyper_mask(path, width, height):
     samples = find_all_samples(path)[1:]
     for sample in samples[:4]:
@@ -133,8 +136,46 @@ def mean_iou(y_true, y_pred):
     return score
 
 
+def mean_iou_border(y_true, y_pred):
+    y_true = K.round(y_true)
+    print(y_true)
+    y_pred = K.round(y_pred)
+    score, up_opt = tf.metrics.mean_iou(y_true, y_pred, 2)
+    K.get_session().run(tf.local_variables_initializer())
+    with tf.control_dependencies([up_opt]):
+       score = tf.identity(score)
+    return score
+
+
+# def dice_coef(y_true, y_pred, smooth, thresh):
+#     y_pred = y_pred > thresh
+#     y_true_f = K.flatten(y_true)
+#     y_pred_f = K.flatten(y_pred)
+#     intersection = K.sum(y_true_f * y_pred_f)
+#
+#     return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+#
+# def dice_loss(smooth, thresh):
+#     def dice(y_true, y_pred):
+#         return -dice_coef(y_true, y_pred, smooth, thresh)
+#     return dice
+#
+#
+# def custom_loss(y_true, y_pred, weight):
+#     y_t = y_true * weight
+#     y_p = y_pred * weight
+#     de
+#     return binary_crossentropy(y_t, y_p)
+
+
+def custom_lo(weight):
+    def cust(y_true, y_pred):
+        return binary_crossentropy(y_true * weight, y_pred * weight)
+    return cust
+
+
 def create_model(filter_size = 8, drop_rate=.4):
-    img_input = Input(shape=(256,256,1))
+    img_input = Input(shape=(256,256,1), name='input_image')
 
     conv1 = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(img_input)
     conv1 = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(conv1)
@@ -181,33 +222,32 @@ def create_model(filter_size = 8, drop_rate=.4):
 
     pred_mask = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid', name='mask_out')(uconv1a)
 
-    uconv1b = Conv2D(filters=filter_size, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1)
-    uconv1b = Conv2D(filters=2, kernel_size=3, strides=1, activation='relu', padding='same')(uconv1b)
 
-    pred_bord = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', activation='sigmoid', name='bord_out')(uconv1b)
+    weight_input = Input(shape=(256,256,1), name='input_weight')
 
+    loss_custom = custom_lo(weight_input)
 
-    model = Model(inputs=img_input, outputs=[pred_mask, pred_bord])
-    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['acc', mean_iou])
+    model = Model(inputs=[img_input,weight_input], outputs=[pred_mask])
+    model.compile(loss=loss_custom, optimizer='rmsprop')
     return model
 
 
 
 if __name__ == '__main__':
     # create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/tessst', 256, 256)
-    # path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img_no_masks'
     path_img = '../stage1_train'
+    # path_img = 'img'
     model_x2 = create_model()
     model_x2.summary()
-    labels = os.listdir(path_img)
-    training = labels[:608]
-    validation = labels[608:]
+    labels = os.listdir(path_img)[1:]
+    training = labels[:160]
+    validation = labels[160:191]
     print(len(training))
     print(len(validation))
     training_generator = generator.DataGenerator(training, path_img,
                                                  rotation=True, flipping=True, zoom=1.5, batch_size = 16, dim=(256,256))
     validation_generator = generator.DataGenerator(validation, path_img,
                                                  rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
-    model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=64)
+    model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=128)
     # Save model
-    model_x2.save('model_b5.h5')
+    model_x2.save('model_doge.h5')
