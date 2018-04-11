@@ -9,6 +9,7 @@ import shutil
 from skimage.segmentation import find_boundaries
 from skimage.morphology import dilation
 from scipy.ndimage.measurements import center_of_mass
+from scipy.misc import imresize
 
 
 def find_all_samples(path):
@@ -68,7 +69,7 @@ def foo(l, dtype=int):
     return map(dtype, l)
 
 def create_border_hyper_mask(path, width, height):
-    samples = find_all_samples(path)[1:]
+    samples = find_all_samples(path)[:2]
     for sample in samples[:]:
         sample_path = os.path.join(path, sample)
         sample_path_masks = os.path.join(sample_path, 'masks')
@@ -85,12 +86,10 @@ def create_border_hyper_mask(path, width, height):
         complete_boun = complete_boun ** 2 / 9
 
 
-        print(sample)
-        print(np.max(complete_boun))
+
 
         complete_boun = complete_boun * 255
         complete_boun[complete_boun > 255] = 255
-        print(np.max(complete_boun))
 
         # save image
         try:
@@ -101,6 +100,6 @@ def create_border_hyper_mask(path, width, height):
         mask_image = Image.fromarray(complete_boun.astype('uint8'), 'L')
         mask_image.save(os.path.join(sample_path, 'smashing_border', '{}.png'.format(sample)))
 
-# create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/stage1_train', 256, 256)
+create_border_hyper_mask('C:/Users/huubh/Documents/DSB2018_bak/img', 256, 256)
 # create_mask('/Users/HuCa/Documents/DSB2018/stage1_train', 256, 256)
-create_border_mask('/Users/HuCa/Documents/DSB2018/stage1_train', 256, 256)
+# create_border_mask('/Users/HuCa/Documents/DSB2018/stage1_train', 256, 256)

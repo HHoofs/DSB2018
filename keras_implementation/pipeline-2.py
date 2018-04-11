@@ -235,19 +235,31 @@ def create_model(filter_size = 10, drop_rate=.3):
 
 if __name__ == '__main__':
     # create_border_hyper_mask('/Users/HuCa/Documents/DSB2018/tessst', 256, 256)
-    # path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img'
-    path_img = 'img'
+    path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img'
+    # path_img = 'img'
     model_x2 = create_model()
     model_x2.summary()
     labels = os.listdir(path_img)[1:]
-    training = labels[:608]
-    validation = labels[608:]
+    training = labels[:32]
+    # validation = labels[608:]
     print(len(training))
-    print(len(validation))
+    # print(len(validation))
     training_generator = generator.DataGenerator(training, path_img,
                                                  rotation=True, flipping=True, zoom=1.25, batch_size = 16, dim=(256,256))
-    validation_generator = generator.DataGenerator(validation, path_img,
-                                                 rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
-    model_x2.fit_generator(generator=training_generator, validation_data=validation_generator, epochs=16)
-    # Save model
-    model_x2.save('model_dogeC.h5')
+
+    prediction_generator_boundaries = generator.PredictDataGenerator2\
+        (training[:2], path_img)
+    # validation_generator = generator.DataGenerator(validation, path_img,
+    #                                              rotation=True, flipping=True, zoom=False, batch_size = 31, dim=(256,256))
+    for i in range(100):
+        model_x2.fit_generator(generator=training_generator, epochs=2)
+        predict = model_x2.predict_generator(prediction_generator_boundaries)
+        print(np.max(predict))
+        nico_ = generator.post_process_concat(training[:2], predict, threshold=4, bool=True)
+        out_true = generator.post_process_original_size(nico_, path_img)
+        for ids, out_arra in out_true.items():
+            generator.plot_image_mask_hyper_out(ids, out_arra, path_img, i)
+
+
+        # Save model
+    # model_x2.save('model_dogeC.h5')

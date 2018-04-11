@@ -6,11 +6,14 @@ except:
 import keras.metrics
 keras.metrics.mean_iou_border = pipeline.mean_iou_border
 keras.losses.cust = keras.losses.binary_crossentropy
-# keras.metrics.mean_iou_mask = pipeline.mean_iou_mask
+keras.metrics.mean_iou = pipeline.mean_iou
+from keras import backend as K
 
 from keras import models
 import os
 import numpy as np
+import glob
+import re
 import pandas as pd
 
 # def rle_encoding(x):
@@ -67,15 +70,60 @@ def prob_to_rles(x, cut_off = 0.5):
     for i in range(1, lab_img.max()+1):
         yield rle_encoding(lab_img==i)
 
+
+def one_at_a_time(path_models, path_img, labels):
+    prediction_generator = generator.PredictDataGenerator(labels, path_img)
+    for i in [999]:
+        # with models.load_model(all_models[model_hd5]) as model_xx:
+        model_xx = models.load_model('model_dogeCC12.h5')
+        prediction_x8 = model_xx.predict_generator(prediction_generator)
+        del model_xx
+        K.clear_session()
+        print(labels)
+        prediction = generator.post_process_concat(labels, prediction_x8, threshold=4.25, bool=False)
+        # predicti_t = generator.post_process_concat(labels, prediction_x8, threshold=4.25, bool=True)
+        out_true = generator.post_process_original_size(prediction, path_img)
+        for ids, out_arra in prediction.items():
+            generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, str(i))
+        for ids, out_arra in prediction.items():
+            generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, 'rgb', True)
+
+
+    all_models = glob.glob(os.path.join(path_models, '*.hd5'))
+    model_sorted = np.argsort([int(re.search('model_x_(.*)[.]', model).group(1)) for model in all_models])
+    for i, model_hd5 in enumerate(model_sorted):
+        print(all_models[model_hd5])
+        # with models.load_model(all_models[model_hd5]) as model_xx:
+        model_xx = models.load_model(all_models[model_hd5])
+        prediction_x8 = model_xx.predict_generator(prediction_generator)
+        del model_xx
+        K.clear_session()
+        print(labels)
+        prediction = generator.post_process_concat(labels, prediction_x8, threshold=4.25, bool=False)
+        # predicti_t = generator.post_process_concat(labels, prediction_x8, threshold=4.25, bool=True)
+        out_true = generator.post_process_original_size(prediction, path_img)
+        for ids, out_arra in prediction.items():
+            generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, str(i))
+        # make video
+        # ffmpeg -r 5 -i output_00ae6_%1d.png -vcodec mpeg4 -y movie.mp4
+
+
 if __name__ == '__main__':
-    path_img = '../stage1_train'
-    labels = os.listdir(path_img)[1:11]
+    path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img'
+    # path_img = '../img'
+    labels = os.listdir(path_img)[:4]
     print(len(labels))
     prediction_ids = labels[:]
 
+
+    one_at_a_time(path_models='C:/Users/huubh/Dropbox/DSB_MODEL/show', path_img=path_img, labels=labels)
+
+
+    quit(2)
+
     # model_x5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_x88.h5')
     # model_b5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_t5t.h5')
-    model_b5 = models.load_model('model_doge.h5')
+    model_b5 = models.load_model('model_dogeCC12.h5')
 
 
     prediction_generator_boundaries = generator.PredictDataGenerator(prediction_ids[:], path_img)
@@ -86,10 +134,10 @@ if __name__ == '__main__':
     #
     # henk_ = generator.post_process_concat(prediction_ids[:], predictions_only_masks, threshold=4, bool=True)
 
-    nico_ = generator.post_process_concat(prediction_ids[:], predictions_boundaries, threshold=3, bool=True)
+    nico_ = generator.post_process_concat(prediction_ids[:], predictions_boundaries, threshold=4.25, bool=True)
 
-    for ids, out_arra in nico_.items():
-        generator.plot_image_mask_hyper_out(ids, out_arra, path_img)
+    # for ids, out_arra in nico_.items():
+    #     generator.plot_image_mask_hyper_out(ids, out_arra, path_img)
 
     # out_true = generator.post_process_original_size(out_square, path_img)
 
@@ -98,7 +146,14 @@ if __name__ == '__main__':
     # for id in summed_dict.keys():
     #     summed_dict[id] = out_masks_square[id] - out_boundaries_square[id] > .5
 
-    # out_true = generator.post_process_original_size(nico_, path_img)
+    out_true = generator.post_process_original_size(nico_, path_img)
+
+    # for ids, out_arra in nico_.items():
+    #     generator.plot_image_mask_border(ids, out_arra, out_true[ids], path_img)
+
+    for ids, out_arra in nico_.items():
+        generator.plot_image_mask_hyper_out(ids, out_arra, path_img)
+
 
     # for ids, out_arra in out_masks_square.items():
     #     summed_dict[ids] = generator.plot_image_mask_border(ids, out_masks_square[ids], out_arra, out_true[ids], path_img)
@@ -111,10 +166,20 @@ if __name__ == '__main__':
     # for ids, out_arra in out_true.items():
     #     print(np.max(out_arra))
     #     generator.plot_image_true_mask(ids, out_arra, path_img)
-    #
-    # new_test_ids = []
-    # rles = []
-    #
+
+    new_test_ids = []
+    rles = []
+
+    for id, arrayx_ in out_true.items():
+        rle = list(prob_to_rles(arrayx_))
+        rles.extend(rle)
+        new_test_ids.extend([id] * len(rle))
+
+    sub = pd.DataFrame()
+    sub['ImageId'] = new_test_ids
+    sub['EncodedPixels'] = pd.Series(rles).apply(lambda x: ' '.join(str(y) for y in x))
+    sub.to_csv('sub_45.csv', index=False)
+
     # for id, arrayx_ in out_true.items():
     #     rle = list(prob_to_rles(arrayx_))
     #     rles.extend(rle)
@@ -130,5 +195,5 @@ if __name__ == '__main__':
 
 
 
-    #####
+    ####
 
