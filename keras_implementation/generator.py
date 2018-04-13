@@ -10,6 +10,9 @@ import matplotlib.cm as cm
 from scipy.misc import imresize
 from skimage import morphology
 from skimage.color import label2rgb
+import matplotlib
+matplotlib.rcParams.update({'font.size': 18, 'figure.edgecolor': 'black'})
+
 
 def sample_x_y(samples, path, x_shape=(256,256), y_shape=(256,256), mirror_edges=0):
 
@@ -167,9 +170,7 @@ class DataGenerator(keras.utils.Sequence):
                     weight_img = weight_img.transpose(Image.FLIP_TOP_BOTTOM)
                 weight_img = np.array(weight_img) / 255
                 weight_img = (weight_img * 5 + 1 + y_arr_s) / 3
-                # print(np.max(weight_img), np.min(weight_img))
                 weight_img = np.expand_dims(weight_img, axis=2)
-                # print(weight_img.shape)
 
                 X_d['input_weight'][i, ] = weight_img
 
@@ -405,6 +406,8 @@ def post_process_original_size(prediction_dict, path):
             out_shape = np.array(x_img).shape
             pred_as_int = np.array(pred * 255, dtype=int)
             pred_as_  = imresize(pred_as_int,(out_shape[0],out_shape[1])) > 135.5
+            # pred_as_int = np.array(pred, dtype=int)
+            # pred_as_ = imresize(pred_as_int, (out_shape[0], out_shape[1])) > (255 / 2)
             pred_as_ = np.array(pred_as_, dtype=int)
             pred_as_ = morphology.remove_small_holes(pred_as_)
             pred_as_ = np.array(pred_as_, dtype=int)
@@ -475,8 +478,8 @@ def plot_image_mask_border(label, out_mask, out_border, path):
     plt.close()
 
 
-def plot_image_mask_hyper_out(label, out_mask, out_mask_true, path, suffix=None, label_rgb=False):
-    fig = plt.figure(figsize=(16*4,9*4), dpi=150)
+def plot_image_mask_hyper_out(label, out_mask, out_mask_true, path, suffix=None, label_rgb=False, gt=False):
+    fig = plt.figure(figsize=(16,9), dpi=150)
     ax1 = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=3)
     ax2 = plt.subplot2grid((3, 5), (0, 2), colspan=1, rowspan=1)
     ax3 = plt.subplot2grid((3, 5), (1, 2), colspan=1, rowspan=1)
@@ -488,6 +491,7 @@ def plot_image_mask_hyper_out(label, out_mask, out_mask_true, path, suffix=None,
         x_plot = x_img.convert(mode='L')
         # x_img = ImageOps.autocontrast(x_img)
         x_arr = np.array(x_img)
+        save_shape = x_arr.shape
         # plt.subplot(221)
         ax1.imshow(x_arr)
         ax1.axis('off')
@@ -509,7 +513,7 @@ def plot_image_mask_hyper_out(label, out_mask, out_mask_true, path, suffix=None,
         # plt.subplot(223)
         ax3.imshow(x_arr)
         ax3.axis('off')
-        ax3.set_title('Borders (weight matrix)')
+        ax3.set_title('Borders')
 
     out_mask_p = out_mask * 255
 
@@ -525,17 +529,34 @@ def plot_image_mask_hyper_out(label, out_mask, out_mask_true, path, suffix=None,
     if label_rgb:
         out_mask_p = out_mask_true * 255
 
-        label_image = morphology.label(out_mask_p)
-        image_label_overlay = label2rgb(label_image, image=out_mask_p)
-        image_label_overlay[out_mask_true==False] = 0
-        out_mask_true = image_label_overlay
+        label_image = morphology.label(out_mask_p, background=0)
+        # image_label_overlay = label2rgb(label_image, image=out_mask_p)
+        out_mask_true = label_image
+        out_mask_true = np.ma.masked_equal(out_mask_true, 0)
 
-    # plt.subplot(224)
-    ax5.imshow(out_mask_true, cmap=cm.gray)
-    ax5.axis('off')
-    ax5.set_title('Output')
+        import copy
+        cmap = copy.copy(cm.prism)
+        cmap.set_bad(color='black')
 
-    fig.savefig('testt/output_{0}_{1}.png'.format(label[:5], suffix))
+        ax5.imshow(out_mask_true, cmap=cmap)
+        ax5.axis('off')
+        ax5.set_title('Output (original size)')
+
+    else:
+        true_bord = x_arr
+        true_bord[true_bord>0] = 1
+        true_bord = morphology.erosion(true_bord)
+        true_bord = imresize(true_bord, size=(save_shape[0], save_shape[1]))
+
+        true_bord = np.ma.masked_equal(true_bord, 0)
+
+        ax5.imshow(out_mask_true, cmap=cm.gray)
+        if gt:
+            ax5.imshow(true_bord, cmap=cm.prism, alpha=.95)
+        ax5.axis('off')
+        ax5.set_title('Output (original size)')
+
+    fig.savefig('testt/{0}img{1}.png'.format(label[:5], suffix),bbox_inches='tight')
     plt.close()
 
 

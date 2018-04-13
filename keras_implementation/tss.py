@@ -103,3 +103,9 @@ def create_border_hyper_mask(path, width, height):
 create_border_hyper_mask('C:/Users/huubh/Documents/DSB2018_bak/img', 256, 256)
 # create_mask('/Users/HuCa/Documents/DSB2018/stage1_train', 256, 256)
 # create_border_mask('/Users/HuCa/Documents/DSB2018/stage1_train', 256, 256)
+
+
+
+
+
+ttt = np.array([[1,1,0,0],[1,0,0,0],[0,0,0,2]])

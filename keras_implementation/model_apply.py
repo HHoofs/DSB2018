@@ -87,11 +87,13 @@ def one_at_a_time(path_models, path_img, labels):
             generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, str(i))
         for ids, out_arra in prediction.items():
             generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, 'rgb', True)
-
+        for ids, out_arra in prediction.items():
+            generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, 'gt', False, True)
 
     all_models = glob.glob(os.path.join(path_models, '*.hd5'))
     model_sorted = np.argsort([int(re.search('model_x_(.*)[.]', model).group(1)) for model in all_models])
     for i, model_hd5 in enumerate(model_sorted):
+        # if i > 110:
         print(all_models[model_hd5])
         # with models.load_model(all_models[model_hd5]) as model_xx:
         model_xx = models.load_model(all_models[model_hd5])
@@ -103,22 +105,30 @@ def one_at_a_time(path_models, path_img, labels):
         # predicti_t = generator.post_process_concat(labels, prediction_x8, threshold=4.25, bool=True)
         out_true = generator.post_process_original_size(prediction, path_img)
         for ids, out_arra in prediction.items():
-            generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, str(i))
+            generator.plot_image_mask_hyper_out(ids, out_arra, out_true[ids], path_img, "%03d" % i)
         # make video
-        # ffmpeg -r 5 -i output_00ae6_%1d.png -vcodec mpeg4 -y movie.mp4
+        # ffmpeg -r 5 -i output_00ae6_%03d.png -vcodec mpeg4 -y movie.mp4
 
 
 if __name__ == '__main__':
     path_img = 'C:/Users/huubh/Documents/DSB2018_bak/img'
-    # path_img = '../img'
-    labels = os.listdir(path_img)[:4]
+    # path_img = '../stage2_test_final'
+    labels = os.listdir(path_img)[:]
     print(len(labels))
     prediction_ids = labels[:]
+    labels = ['449f41710769584b5e4eca8ecb4c76d5272605f27da2949e6285de0860d2cbc0',
+              '8c3ef7aa7ed29b62a65b1c394d2b4a24aa3da25aebfdf3d29dbfc8ad1b08e95a',
+              '4193474b2f1c72f735b13633b219d9cabdd43c21d9c2bb4dfc4809f104ba4c06',
+              '853a4c67900c411abd04467f7bc7813d3c58a5f565c8b0807e13c6e6dea21344',
+              '6b0ac2ab04c09dced54058ec504a4947f8ecd5727dfca7e0b3f69de71d0d31c7',
+              '9ebcfaf2322932d464f15b5662cae4d669b2d785b8299556d73fffcae8365d32',
+              'fdda64c47361b0d1a146e5b7b48dc6b7de615ea80b31f01227a3b16469589528',
+              '7f38885521586fc6011bef1314a9fb2aa1e4935bd581b2991e1d963395eab770']
 
 
     one_at_a_time(path_models='C:/Users/huubh/Dropbox/DSB_MODEL/show', path_img=path_img, labels=labels)
-
-
+    # #
+    # #
     quit(2)
 
     # model_x5 = models.load_model('C:/Users/huubh/Dropbox/DSB_MODEL/model_x88.h5')
@@ -151,8 +161,8 @@ if __name__ == '__main__':
     # for ids, out_arra in nico_.items():
     #     generator.plot_image_mask_border(ids, out_arra, out_true[ids], path_img)
 
-    for ids, out_arra in nico_.items():
-        generator.plot_image_mask_hyper_out(ids, out_arra, path_img)
+    # for ids, out_arra in nico_.items():
+    #     generator.plot_image_mask_hyper_out(ids, out_arra, path_img)
 
 
     # for ids, out_arra in out_masks_square.items():
