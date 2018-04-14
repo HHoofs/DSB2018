@@ -1,0 +1,15 @@
+import os
+import shutil
+
+
+path = '../stage1_train'
+
+images =  os.listdir(path)[1:]
+print(len(images))
+
+for image in images:
+    subdirs = os.listdir(os.path.join(path, image))
+    for subdir in subdirs:
+        if subdir == 'smashing_border':
+            shutil.copytree(os.path.join(path, image, subdir),
+                            os.path.join('../copy_smashing_borders', image, subdir))

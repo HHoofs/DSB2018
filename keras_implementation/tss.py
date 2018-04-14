@@ -51,18 +51,18 @@ def create_border_mask(path, width, height):
             full_bounds = np.array(complete_mask, dtype=int)
             bound_array = find_boundaries(label_img = full_bounds, connectivity = 1, mode='outer', background=0)
             bound_array = np.array(bound_array, dtype=int)
-            bound_array = dilation(bound_array)
+            bound_array[full_bounds > 0] = 0
             bound_array = bound_array * 255
             print(np.max(bound_array))
 
             # save image
             try:
-                shutil.rmtree(os.path.join(sample_path, 'border'))
+                shutil.rmtree(os.path.join(sample_path, 'small_border'))
             except:
                 pass
-            os.mkdir(os.path.join(sample_path, 'border'))
+            os.mkdir(os.path.join(sample_path, 'small_border'))
             mask_image = Image.fromarray(bound_array.astype('uint8'), 'L')
-            mask_image.save(os.path.join(sample_path, 'border', '{}.png'.format(sample)))
+            mask_image.save(os.path.join(sample_path, 'small_border', '{}.png'.format(sample)))
 
 
 def foo(l, dtype=int):
@@ -81,7 +81,8 @@ def create_border_hyper_mask(path, width, height):
                 _array = np.array(_mask.resize((width, height)))
                 bound_array = find_boundaries(label_img = _array, mode='outer', background=0)
                 bound_array = dilation(bound_array)
-                bound_array[_array == 1] = 0
+                bound_array[_array > 0] = 0
+                complete_mask = np.maximum(complete_mask, _array)
                 complete_boun = np.add(complete_boun, bound_array)
         complete_boun = complete_boun ** 2 / 9
 

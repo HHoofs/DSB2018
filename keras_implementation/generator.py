@@ -169,7 +169,12 @@ class DataGenerator(keras.utils.Sequence):
                 if flip[1,i]:
                     weight_img = weight_img.transpose(Image.FLIP_TOP_BOTTOM)
                 weight_img = np.array(weight_img) / 255
+<<<<<<< Updated upstream
                 weight_img = (weight_img * 5 + 1 + y_arr_s) / 3
+=======
+                weight_img = weight_img * 9 + 1
+                print(np.max(weight_img), np.min(weight_img))
+>>>>>>> Stashed changes
                 weight_img = np.expand_dims(weight_img, axis=2)
 
                 X_d['input_weight'][i, ] = weight_img
@@ -190,6 +195,8 @@ class DataGenerator(keras.utils.Sequence):
                 y_arr[y_arr>0] = 1
                 y_arr_sub = y_arr_store - y_arr
                 y_arr_sub[y_arr_sub<0] = 0
+                print(np.max(y_arr_sub), np.min(y_arr_sub))
+                print(" ")
                 Y[i, ] = y_arr_sub
 
 

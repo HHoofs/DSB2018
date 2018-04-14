@@ -200,7 +200,15 @@ if __name__ == '__main__':
     # sub['EncodedPixels'] = pd.Series(rles).apply(lambda x: ' '.join(str(y) for y in x))
     # sub.to_csv('sub.csv', index=False)
 
+    for id, arrayx_ in out_true.items():
+        rle = list(prob_to_rles(arrayx_))
+        rles.extend(rle)
+        new_test_ids.extend([id] * len(rle))
 
+    sub = pd.DataFrame()
+    sub['ImageId'] = new_test_ids
+    sub['EncodedPixels'] = pd.Series(rles).apply(lambda x: ' '.join(str(y) for y in x))
+    sub.to_csv('sub.csv', index=False)
 
 
 
